@@ -71,7 +71,6 @@ export const Home: React.FC = () => {
       {/* Live Ticker */}
       <MarqueeTicker items={tickerItems} />
 
-<<<<<<< HEAD
       {/* Stats Bar */}
       <section className="py-12 border-b border-border bg-primary animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -151,25 +150,6 @@ export const Home: React.FC = () => {
           </div>
         </section>
       )}
-=======
-      {/* Live Chart Section */}
-      <section className="py-16 bg-primary border-t border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-text-primary tracking-tight">
-              Live Market Tracking
-            </h2>
-            <p className="mt-4 text-lg text-text-secondary max-w-2xl mx-auto">
-              Stay ahead of the market with our live, interactive chart for Colombo Stock Exchange's leading stocks.
-            </p>
-          </div>
-          
-          <div className="bg-secondary rounded-2xl border border-border p-4 shadow-xl shadow-secondary/50 h-[500px] md:h-[600px] overflow-hidden flex flex-col">
-            <TradingViewWidget />
-          </div>
-        </div>
-      </section>
->>>>>>> upstream/main
 
       {/* Features Section */}
       <section className="py-24 bg-primary animate-fade-in-up" style={{ animationDelay: '0.3s' }}>

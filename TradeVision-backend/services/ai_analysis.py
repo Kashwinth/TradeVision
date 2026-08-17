@@ -89,21 +89,22 @@ YOUR TASK — perform a multi-layered analysis:
 {
   "overall_verdict": "Bullish" | "Bearish" | "Neutral",
   "verdict_confidence": "High" | "Medium" | "Low",
-  "summary": "2-3 sentence executive summary",
-  "price_analysis": "Paragraph interpreting the XGBoost prediction, predicted close, confidence, and what it means",
-  "sentiment_analysis": "Paragraph interpreting the FinBERT score and what the news sentiment signals",
-  "technical_analysis": "Paragraph interpreting RSI, MACD, price action patterns",
+  "summary": "1-2 sentence executive summary",
+  "key_insights": [
+    "Insight 1 (e.g. Price action & XGBoost)",
+    "Insight 2 (e.g. Sentiment & news)",
+    "Insight 3 (e.g. Technicals)"
+  ],
   "recent_news": [
     {
       "headline": "Article title",
       "source": "Publication name",
       "url": "https://...",
       "date": "YYYY-MM-DD or approximate",
-      "relevance": "Brief note on why this matters"
+      "relevance": "1 short sentence on why this matters"
     }
   ],
-  "risk_factors": ["risk 1", "risk 2", ...],
-  "short_term_outlook": "1-5 day directional reasoning paragraph",
+  "risk_factors": ["risk 1", "risk 2"],
   "recommendation_note": "Not financial advice. This is model output for informational purposes only."
 }
 ```
@@ -112,9 +113,11 @@ RULES:
 - Every number you cite MUST come from the data provided. Do NOT hallucinate prices.
 - You will be provided with a list of recently scraped news articles. Use these to populate the `recent_news` array. Do NOT invent or hallucinate URLs or articles that were not provided to you. If no articles are provided, leave the array empty `[]`.
 - Prices are in Sri Lankan Rupees (LKR). Write as "Rs X.XX".
-- Keep each section concise but insightful.
+- Keep `key_insights` to exactly 3-5 short, punchy bullet points.
+- Keep the `summary` strictly to 1-2 sentences.
 - The overall_verdict must be supported by the evidence you present.
 - RETURN ONLY THE JSON OBJECT. No markdown fences, no preamble, no commentary.
+
 """
 
 
@@ -276,12 +279,9 @@ def analyze(
             "overall_verdict": "Neutral",
             "verdict_confidence": "Low",
             "summary": text[:500],
-            "price_analysis": "Analysis could not be fully parsed.",
-            "sentiment_analysis": "",
-            "technical_analysis": "",
+            "key_insights": ["Analysis could not be fully parsed."],
             "recent_news": [],
             "risk_factors": [],
-            "short_term_outlook": "",
             "recommendation_note": "Not financial advice.",
             "_raw": text,
         }

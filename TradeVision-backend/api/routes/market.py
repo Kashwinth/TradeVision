@@ -136,37 +136,49 @@ async def market_symbols():
 
 def _history_sync(symbol: str, days: int) -> dict:
     ticker = resolve_open(symbol)
-    df = price_data.get_price_history(ticker)
-
-    # get_price_history returns 2 years because Wilder's RSI is recursive and
-    # needs full history; the chart only wants the tail.
-    tail = df.iloc[-days:] if days < len(df) else df
-
-    points = [
-        PricePoint(
-            timestamp=pd.Timestamp(index).strftime("%Y-%m-%d"),
-            open=float(row["Open"]),
-            high=float(row["High"]),
-            low=float(row["Low"]),
-            close=float(row["Close"]),
-            volume=float(row["Volume"]),
-        )
-        for index, row in tail.iterrows()
-    ]
-
+    
+    # User requested to only show 7 days (5 trading bars) and strictly use the 
+    # official CSE API to guarantee live, accurate data without Yahoo staleness.
+    points = []
     warnings: list[str] = []
-    stale_days = df.attrs.get("stale_days")
-    as_of = price_data.latest_date(df)
-    if stale_days is not None and stale_days > price_data.STALE_AFTER_DAYS:
-        warnings.append(
-            f"Newest real trading bar is {as_of} ({stale_days} days old). Yahoo "
-            f"Finance has stopped updating this symbol; forward-filled placeholder "
-            f"rows were discarded. Use the live CSE quote for the current price."
-        )
+    as_of = None
+    stale_days = 0
+
+    try:
+        live_data = cse_api.historical_5day(symbol)
+        if live_data:
+            for p in live_data:
+                if p.get("time"):
+                    dt = pd.to_datetime(p["time"], unit="ms").strftime("%Y-%m-%d")
+                    close = float(p["price"])
+                    high = float(p["high"]) if p.get("high") is not None else close
+                    low = float(p["low"]) if p.get("low") is not None else close
+                    vol = float(p["quantity"]) if p.get("quantity") is not None else 0.0
+                    
+                    points.append(PricePoint(
+                        timestamp=dt,
+                        open=close, 
+                        high=high,
+                        low=low,
+                        close=close,
+                        volume=vol
+                    ))
+            
+            points.sort(key=lambda x: x.timestamp)
+            
+            if points:
+                as_of = points[-1].timestamp
+                last_dt = pd.to_datetime(as_of).date()
+                import datetime
+                stale_days = (datetime.date.today() - last_dt).days
+        else:
+            warnings.append(f"No recent CSE historical data for {symbol}.")
+    except Exception as e:
+        warnings.append(f"Failed to fetch CSE historical data: {e}")
 
     return {
         "symbol": ticker.symbol,
-        "source": "yahoo",
+        "source": "cse_official",
         "points": points,
         "as_of": as_of,
         "stale_days": stale_days,

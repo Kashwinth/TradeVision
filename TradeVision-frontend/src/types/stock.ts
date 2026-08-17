@@ -141,11 +141,8 @@ export interface AiAnalysisResult {
   overall_verdict: 'Bullish' | 'Bearish' | 'Neutral';
   verdict_confidence: 'High' | 'Medium' | 'Low';
   summary: string;
-  price_analysis: string;
-  sentiment_analysis: string;
-  technical_analysis: string;
+  key_insights: string[];
   recent_news: AiNewsItem[];
   risk_factors: string[];
-  short_term_outlook: string;
   recommendation_note: string;
 }

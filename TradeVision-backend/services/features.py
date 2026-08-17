@@ -52,6 +52,10 @@ FEATURE_COLUMNS = [
     "RSI_3",
     "Return_Lag1",
     "Return_Lag2",
+    "SMA_3_Pct",
+    "EMA_3_Pct",
+    "MACD_Pct",
+    "MACD_Hist_Pct",
 ]
 
 # Raw OHLCV columns every input frame must carry.
@@ -241,6 +245,12 @@ def add_model_features(df: "pd.DataFrame") -> "pd.DataFrame":
 
     # Training rescaled the CSV's 0-100 RSI columns to 0-1.
     out["RSI_3"] = out["RSI_3"].astype(float) / 100.0
+
+    # Scale-free technical indicators
+    out["SMA_3_Pct"] = close / out["SMA_3"]
+    out["EMA_3_Pct"] = close / out["EMA_3"]
+    out["MACD_Pct"] = out["MACD"] / close
+    out["MACD_Hist_Pct"] = out["MACD_Hist"] / close
 
     out["Current_Return"] = close.pct_change()
     out["Return_Lag1"] = out["Current_Return"].shift(1)

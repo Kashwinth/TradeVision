@@ -125,8 +125,8 @@ interface ApiAnalysis {
     predicted_close: number;
     change_percent: number;
     trend: string;
-    probability_up: number;
-    probability_up_adjusted: number;
+    probability_up: number | null;
+    probability_up_adjusted: number | null;
     confidence: number;
     model_status: string;
   } | null;

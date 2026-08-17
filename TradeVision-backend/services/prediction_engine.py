@@ -1,20 +1,16 @@
 """
 Stock prediction engine — XGBoost inference + sentiment blend + price sizing.
 
-The trained artifact is a binary DIRECTION classifier: it returns P(next day is
-up), nothing else. The price figures in the API response therefore have to be
-derived, and this module is where that happens, transparently:
+The trained artifact is an XGBRegressor: it returns the expected percentage return
+for the next day. The price figures in the API response are derived directly
+from this expected return:
 
-    p_up        = model.predict_proba(feature_row)[0][1]
-    p_adjusted  = clip(p_up + SENTIMENT_INFLUENCE * sentiment_score, 0, 1)
-    trend       = "Upward" if p_adjusted > 0.55 else "Downward" if < 0.45 else "Neutral"
-    exp_return  = (2 * p_adjusted - 1) * sigma      # sigma = realized vol of recent returns
-    predicted   = latest_close * (1 + exp_return)
+    expected_return = model.predict(feature_row)[0]
+    expected_return += SENTIMENT_INFLUENCE * sentiment_score
+    predicted   = latest_close * (1 + expected_return)
 
-The model has no sentiment input (its feature set is fixed at 10 columns), so the
-blend happens AFTER inference. The raw and adjusted probabilities are both
-returned so the fusion is visible in the response rather than hidden inside a
-single number.
+The model has no sentiment input (its feature set is fixed), so the
+blend happens AFTER inference.
 """
 
 import os
@@ -37,12 +33,12 @@ DEFAULT_MODEL_PATH = os.getenv(
     "MODEL_PATH", os.path.join(os.path.dirname(__file__), "..", "models", "srilanka_stock_classifier.json")
 )
 
-# How strongly FinBERT sentiment ([-1, 1]) nudges the model's probability.
-# 0.10 * score: fully bullish news moves p by ±0.10; neutral news leaves it alone.
-SENTIMENT_INFLUENCE = float(os.getenv("SENTIMENT_INFLUENCE", "0.10"))
+# How strongly FinBERT sentiment ([-1, 1]) nudges the model's predicted return.
+# 0.005 * score: fully bullish news moves expected return by +0.5%.
+SENTIMENT_INFLUENCE = float(os.getenv("SENTIMENT_INFLUENCE", "0.005"))
 
-TREND_UP_THRESHOLD = 0.55
-TREND_DOWN_THRESHOLD = 0.45
+TREND_UP_THRESHOLD = float(os.getenv("TREND_UP_THRESHOLD", "0.002"))
+TREND_DOWN_THRESHOLD = float(os.getenv("TREND_DOWN_THRESHOLD", "-0.002"))
 
 
 class ModelNotLoadedError(RuntimeError):
@@ -80,8 +76,8 @@ class StockPredictionEngine:
             return
 
         try:
-            # XGBClassifier is the sklearn wrapper the artifact was saved from.
-            model = xgb.XGBClassifier()
+            # XGBRegressor is the sklearn wrapper the artifact was saved from.
+            model = xgb.XGBRegressor()
             model.load_model(self.model_path)
             self._model = model
         except Exception as e:
@@ -130,30 +126,34 @@ class StockPredictionEngine:
         feature_row = build_feature_row(df)
         indicators = add_indicators(df)
 
-        # 2. Model: P(up) for tomorrow.
-        proba = self._model.predict_proba(feature_row)
-        p_up = float(np.asarray(proba)[0][1])
+        # 2. Model: Predicted percentage return for tomorrow.
+        pred_return = float(self._model.predict(feature_row)[0])
 
         # 3. Sentiment blend (post-hoc — the model has no sentiment feature).
-        p_adjusted = float(np.clip(p_up + SENTIMENT_INFLUENCE * sentiment_score, 0.0, 1.0))
+        expected_return = pred_return + SENTIMENT_INFLUENCE * sentiment_score
 
-        # 4. Size the move from the stock's own recent volatility.
+        # 4. Volatility context (optional, mainly for deriving a mock 'confidence' score)
         sigma = realized_volatility(df)
-        expected_return = (2.0 * p_adjusted - 1.0) * sigma
+        if sigma > 0:
+            # Map return to a 0-100 bullishness score: 
+            # expected_return of +sigma -> ~100 confidence
+            mock_bullishness = min(max((expected_return / sigma * 50.0) + 50.0, 0.0), 100.0)
+        else:
+            mock_bullishness = 50.0
 
         latest = price_data.latest_close(df)
         predicted_close = float(latest * (1.0 + expected_return))
         change_percent = expected_return * 100.0
-        trend = _trend_label(p_adjusted)
+        trend = _trend_label(expected_return)
 
         return {
             "price_prediction": {
                 "predicted_close": round(predicted_close, 4),
                 "change_percent": round(change_percent, 4),
                 "trend": trend,
-                "probability_up": round(p_up, 4),
-                "probability_up_adjusted": round(p_adjusted, 4),
-                "confidence": round(p_adjusted * 100.0, 2),
+                "probability_up": None,
+                "probability_up_adjusted": None,
+                "confidence": round(mock_bullishness, 2),
                 "model_status": "loaded",
             },
             "model_status": "loaded",

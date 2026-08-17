@@ -40,22 +40,18 @@ class PricePredictionBlock(BaseModel):
     change_percent: float
     trend: str = Field(..., description="Upward, Downward or Neutral.")
 
-    # The underlying model is a direction classifier, so these expose what it
-    # actually produced and how sentiment shifted it. predicted_close is derived
-    # from probability_up_adjusted and recent volatility, not emitted by the model.
-    probability_up: float = Field(..., description="Raw P(up) from XGBoost, before sentiment.")
-    probability_up_adjusted: float = Field(..., description="P(up) after the sentiment blend.")
-    confidence: float = Field(..., description="probability_up_adjusted as a percentage.")
+    # The underlying model is now a Regressor, so direction probabilities are null.
+    # predicted_close is derived directly from the model's expected return.
+    probability_up: float | None = Field(None, description="Raw P(up) from XGBoost, before sentiment.")
+    probability_up_adjusted: float | None = Field(None, description="P(up) after the sentiment blend.")
+    confidence: float = Field(..., description="Bullishness score derived from expected return vs volatility.")
     model_status: str
 
 
 class TechnicalSummary(BaseModel):
-    rsi_14: float | None = None
-    rsi_7: float | None = None
-    sma_10: float | None = None
-    sma_20: float | None = None
-    ema_12: float | None = None
-    ema_26: float | None = None
+    rsi_3: float | None = None
+    sma_3: float | None = None
+    ema_3: float | None = None
     macd: float | None = None
     macd_signal: float | None = None
     macd_hist: float | None = None

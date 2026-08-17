@@ -27,8 +27,9 @@ from starlette.concurrency import run_in_threadpool
 
 from api.routes.prediction import analyze_sync
 from api.schemas.chat import ChatRequest, ChatResponse
-from services import cse_api, gemini_chat
+from services import cse_api, gemini_chat, deepseek_chat
 from services.gemini_chat import GeminiChatError, GeminiUnavailableError
+from services.deepseek_chat import DeepseekChatError, DeepseekUnavailableError
 from services.ticker_registry import UnknownTickerError, resolve_open
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
@@ -179,18 +180,29 @@ async def chat(request: ChatRequest):
 
     symbol = request.context.symbol if request.context else None
 
+    # Fallback to DeepSeek if Gemini fails or is unavailable
     try:
         result = await run_in_threadpool(
             gemini_chat.chat, messages, TOOL_HANDLERS, symbol
         )
-    except GeminiUnavailableError as e:
-        # 503, not 500: nothing is broken, the feature is unconfigured. The UI
-        # shows "chat unavailable" and the rest of the app keeps working.
-        raise HTTPException(status_code=503, detail=str(e)) from e
-    except GeminiChatError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
-
-    return ChatResponse(**result)
+        return ChatResponse(**result)
+    except (GeminiUnavailableError, GeminiChatError) as gemini_err:
+        try:
+            result = await run_in_threadpool(
+                deepseek_chat.chat, messages, TOOL_HANDLERS, symbol
+            )
+            return ChatResponse(**result)
+        except DeepseekUnavailableError as ds_err:
+            # If both are unavailable, throw 503
+            if isinstance(gemini_err, GeminiUnavailableError):
+                raise HTTPException(
+                    status_code=503, 
+                    detail="AI chat is not configured. Neither GEMINI_API_KEY nor AI_ANALYSIS_API_KEY is set."
+                ) from ds_err
+            # If Gemini failed but DeepSeek is unavailable, raise the Gemini error
+            raise HTTPException(status_code=502, detail=f"Gemini API failed and DeepSeek is not configured. (Gemini error: {gemini_err})") from ds_err
+        except DeepseekChatError as ds_err:
+            raise HTTPException(status_code=502, detail=f"Both AI APIs failed. DeepSeek error: {ds_err}") from ds_err
 
 
 @router.get("/chat/status", summary="Whether AI chat is configured on this server")
@@ -200,9 +212,19 @@ async def chat_status():
     that always 503s. Deliberately reports nothing about the key beyond its
     presence.
     """
-    available = gemini_chat.is_available()
+    gemini_available = gemini_chat.is_available()
+    deepseek_available = deepseek_chat.is_available()
+    available = gemini_available or deepseek_available
+    
+    if gemini_available:
+        model = gemini_chat.MODEL
+    elif deepseek_available:
+        model = deepseek_chat._MODEL
+    else:
+        model = None
+        
     return {
         "available": available,
-        "model": gemini_chat.MODEL if available else None,
-        "detail": None if available else "GEMINI_API_KEY is not set on the server.",
+        "model": model,
+        "detail": None if available else "Neither GEMINI_API_KEY nor AI_ANALYSIS_API_KEY is set on the server.",
     }

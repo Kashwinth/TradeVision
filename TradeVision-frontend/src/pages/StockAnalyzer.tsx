@@ -26,7 +26,9 @@ export const StockAnalyzer: React.FC = () => {
   const [isLoadingNews, setIsLoadingNews] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [predictionError, setPredictionError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<number>(30);
+  
+  // Hardcoded to 7 days to strictly use the official CSE 5-day live data
+  const timeRange = 7;
 
   // AI Deep Analysis state
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
@@ -224,19 +226,9 @@ export const StockAnalyzer: React.FC = () => {
               </div>
 
               <div className="flex space-x-2 mb-4">
-                {[7, 30, 90].map((days) => (
-                  <button
-                    key={days}
-                    onClick={() => setTimeRange(days)}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      timeRange === days
-                        ? 'bg-text-primary text-primary'
-                        : 'bg-secondary text-text-secondary hover:bg-border'
-                    }`}
-                  >
-                    {days === 7 ? '1W' : days === 30 ? '1M' : '3M'}
-                  </button>
-                ))}
+                <div className="px-4 py-1.5 rounded-lg text-sm font-medium bg-text-primary text-primary">
+                  1W (Live)
+                </div>
               </div>
 
               <LiveChart data={chartData} ticker={selectedStock.ticker} />
@@ -372,15 +364,13 @@ export const StockAnalyzer: React.FC = () => {
                     onClick={() => void loadAiAnalysis()}
                     disabled={isLoadingAiAnalysis}
                     className="w-full group relative inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold
-                      bg-gradient-to-r from-accent-green to-emerald-600 text-white
-                      hover:from-accent-green/90 hover:to-emerald-500
+                      bg-emerald-600 text-white
+                      hover:bg-emerald-700
                       shadow-lg shadow-accent-green/25 hover:shadow-accent-green/40
                       transition-all duration-300 hover:scale-[1.02]
                       disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
-                    {!user ? <AlertCircle className="w-5 h-5 mr-3 group-hover:text-white/80" /> : <Sparkles className="w-5 h-5 mr-3 group-hover:animate-pulse" />}
-                    {user ? 'AI Deep Analysis — Generate Insights' : 'Login for AI Deep Analysis'}
-                    <ChevronRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
+                    {user ? 'AI Deep Analysis Generate Insights' : 'Login for AI Deep Analysis'}
                   </button>
                   <p className="text-xs text-text-secondary text-center mt-2">
                     Uses DeepSeek AI to perform multi-layered analysis. Usually takes 30-60 seconds.
@@ -461,30 +451,19 @@ export const StockAnalyzer: React.FC = () => {
             </div>
 
             <div className="p-6 space-y-6">
-              {aiAnalysis.price_analysis && (
+              {aiAnalysis.key_insights && aiAnalysis.key_insights.length > 0 && (
                 <div>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-accent-green uppercase tracking-wider mb-2">
-                    <TrendingUp className="w-4 h-4" /> Price Action Analysis
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-accent-green uppercase tracking-wider mb-3">
+                    <Sparkles className="w-4 h-4" /> Key Insights
                   </h3>
-                  <p className="text-text-secondary leading-relaxed">{aiAnalysis.price_analysis}</p>
-                </div>
-              )}
-
-              {aiAnalysis.sentiment_analysis && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-accent-green uppercase tracking-wider mb-2">
-                    <Newspaper className="w-4 h-4" /> Sentiment & News Analysis
-                  </h3>
-                  <p className="text-text-secondary leading-relaxed">{aiAnalysis.sentiment_analysis}</p>
-                </div>
-              )}
-
-              {aiAnalysis.technical_analysis && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-accent-green uppercase tracking-wider mb-2">
-                    <Brain className="w-4 h-4" /> Technical Analysis
-                  </h3>
-                  <p className="text-text-secondary leading-relaxed">{aiAnalysis.technical_analysis}</p>
+                  <ul className="space-y-2">
+                    {aiAnalysis.key_insights.map((insight, idx) => (
+                      <li key={idx} className="flex items-start gap-3">
+                        <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent-green shrink-0" />
+                        <span className="text-sm text-text-secondary leading-relaxed">{insight}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
@@ -538,15 +517,7 @@ export const StockAnalyzer: React.FC = () => {
                 </div>
               )}
 
-              {/* Short-term Outlook */}
-              {aiAnalysis.short_term_outlook && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-accent-green uppercase tracking-wider mb-2">
-                    <Eye className="w-4 h-4" /> Short-term Outlook (1-5 Days)
-                  </h3>
-                  <p className="text-text-secondary leading-relaxed">{aiAnalysis.short_term_outlook}</p>
-                </div>
-              )}
+
 
               {/* Disclaimer */}
               <div className="pt-4 border-t border-border">
